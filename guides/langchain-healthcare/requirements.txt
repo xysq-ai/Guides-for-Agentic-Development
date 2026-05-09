@@ -1,0 +1,8 @@
+langchain==0.3.30
+langgraph==0.2.76
+langchain-core==0.3.86
+langchain-google-genai==2.0.0
+google-generativeai==0.7.2
+python-dotenv==1.0.1
+rich==13.7.1
+xysq>=0.1.0
