@@ -122,7 +122,7 @@ Three agents. Three separate processes. One continuous patient experience.
 
 Every stored fact appears immediately in the xysq dashboard — searchable, editable, deletable by the user. The agent doesn't own this data. The user does.
 
-![xysq dashboard showing captured memories from the demo](images/xysq-dashboard.png)
+![xysq dashboard showing captured memories from the demo](images/xysq_cursorful_scroll_fixed.gif)
 
 The same memories are accessible to other agents (including Claude via MCP) with user consent — memory that outlives the framework you happened to use today.
 
