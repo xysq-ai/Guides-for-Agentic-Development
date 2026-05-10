@@ -147,19 +147,15 @@ Same model, same tools, same graph. Persona changes by swapping the prompt file.
 
 ## Architecture
 
+*LangChain agents · same model, same graph · persona swapped via prompt file*
+
 ```mermaid
 flowchart TD
     P(["👤 Patient"])
 
-    subgraph Agents["LangChain Agents · same model, same graph"]
-        IA["🩺 Intake Agent"]
-        DA["👨‍⚕️ Doctor Agent"]
-        PA["💊 Pharmacist Agent"]
-    end
-
-    P --> IA
-    P --> DA
-    P --> PA
+    P --> IA["🩺 Intake Agent"]
+    P --> DA["👨‍⚕️ Doctor Agent"]
+    P --> PA["💊 Pharmacist Agent"]
 
     IA -- "store_memory" --> X
     DA -- "recall + store" --> X
