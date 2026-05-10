@@ -14,19 +14,12 @@ import argparse
 import asyncio
 import os
 import sys
-import logging
 import warnings
 
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, ToolMessage
 
 import ui
-
-# Suppress noisy logs from 3rd party libraries
-logging.getLogger("google").setLevel(logging.ERROR)
-logging.getLogger("tenacity").setLevel(logging.ERROR)
-logging.getLogger("langchain").setLevel(logging.ERROR)
-logging.getLogger("langchain_google_genai").setLevel(logging.ERROR)
 
 load_dotenv()
 warnings.filterwarnings("ignore")
@@ -122,18 +115,7 @@ def main() -> None:
     args = parser.parse_args()
 
     persona = "intake" if args.intake else "doctor" if args.doctor else "pharm"
-    
-    try:
-        asyncio.run(run_session(persona))
-    except KeyboardInterrupt:
-        sys.exit("\nInterrupted by user.")
-    except Exception as e:
-        error_msg = str(e)
-        if "429" in error_msg or "ResourceExhausted" in error_msg:
-            ui.error("Google API Quota Exceeded (429). Please check your billing or wait a few seconds.")
-        else:
-            ui.error(f"An unexpected error occurred: {error_msg}")
-        sys.exit(1)
+    asyncio.run(run_session(persona))
 
 
 if __name__ == "__main__":

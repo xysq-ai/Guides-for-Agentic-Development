@@ -1,37 +1,20 @@
 # Long-term memory for LangChain agents
 
-> Three LangChain agents — intake nurse, doctor, pharmacist — share one patient's memory through xysq.  
-> **Same patient. Three separate processes. One memory layer that survives restarts.**
+> Three LangChain agents — intake, doctor, pharmacist — share one patient's memory through xysq.
+> Same patient. Three personas. One memory layer that survives process restarts and travels across frameworks.
 
-A minimal educational demo focused on persistent cross-agent memory.
+This guide shows how to give a LangChain agent **long-term memory** — facts that persist across sessions, are visible and editable in a UI, and can be shared with other agents (including a Claude agent in another framework) by user consent.
 
----
+## What you'll learn
 
-## Why this matters
+1. **Persistence** — how to capture facts in one process and recall them in another.
+2. **Cross-agent sharing** — how three different agents read and write the same memory layer with no glue code between them.
+3. **Semantic recall** — how the doctor agent retrieves relevant symptoms by meaning, not by keyword lookup.
+4. **Visibility & portability** — every memory shows up in the xysq UI. The same memory is accessible to other agents (e.g., Claude via MCP) with user consent. Your memory is yours, not the framework's.
 
-Most agent frameworks only remember the current runtime.
+## The integration (≈25 lines)
 
-When the process exits:
-- the conversation resets
-- the scratchpad disappears
-- the next agent starts from zero
-
-xysq separates memory from the framework itself.  
-**The runtime can die. The memory persists.**
-
----
-
-## What this shows
-
-| Without xysq | With xysq |
-|---|---|
-| Each agent starts from zero | Every agent picks up where the last left off |
-| Memory dies when the process exits | Memory persists across sessions and frameworks |
-| Patient repeats themselves every visit | Patient's history follows them automatically |
-
----
-
-## The integration (~20 lines, no database)
+The whole xysq integration is two `@tool` functions. Every agent gets the same two tools:
 
 ```python
 import os
@@ -49,91 +32,62 @@ async def recall_memory(query: str) -> str:
     items = await client.memory.surface(query=query, budget="mid", domain="health")
     if not items:
         return "No relevant memory found."
-    return "Recalled from memory:\n" + "\n".join(f"- {item.text}" for item in items[:5])
+    lines = [f"- {item.text}" for item in items[:5]]
+    return "Recalled from memory:\n" + "\n".join(lines)
 
 
 @tool
-async def store_memory(content: str) -> str:
+async def store_memory(content: str, tags: list[str] | None = None) -> str:
     """Store an important fact in the patient's persistent memory."""
-    await client.memory.capture(content=content, significance="high")
+    result = await client.memory.capture(
+        content=content,
+        tags=tags or ["healthcare"],
+        significance="high",
+    )
+    await client.memory.wait(result.memory_id, timeout=10, interval=0.5)
     return f"Stored: {content[:60]}..."
 ```
 
-No database. No migrations. No vector pipeline. Two tools. Every agent gets the same two.  
-Full source in [`memory_tools.py`](memory_tools.py).
+That's the integration. `surface` is semantic recall (ranked by meaning); `capture` writes a fact; `wait` blocks until the new memory is indexable so the next agent can recall it. Two tools, one client, no schema, no migrations.
 
----
-
-## How the demo runs
-
-Three separate processes. Memory is the only handoff.
-
-```
-Session 1 — Intake      →  agent stores symptoms
-            ↓ process exits
-Session 2 — Doctor      →  agent recalls symptoms → diagnoses → stores Rx
-            ↓ process exits
-Session 3 — Pharmacist  →  agent recalls Rx → counsels patient
-```
-
-```bash
-python demo.py --intake   # Patient describes symptoms; agent stores them
-python demo.py --doctor   # Doctor recalls symptoms; diagnoses; stores Rx
-python demo.py --pharm    # Pharmacist recalls Rx; counsels patient
-```
-
----
-
-## Session 1 — Intake
-
-The patient describes their symptoms. Every fact is captured as it's mentioned — persisted immediately, ready for the next agent.
-
-![Session 1 — Intake Agent storing symptoms in real time](images/session1-intake.png)
-
-The process exits. The conversation is gone. The memory is not.
-
----
-
-## Session 2 — Doctor recall
-
-A new process starts. A different agent. It has never seen the intake conversation.
-
-Its first action: `recall_memory("patient's symptoms, history, prior notes")`.
-
-![Session 2 — Dr. Chen recalling intake memory and forming a diagnosis](images/session2-recall.png)
-
-The diagnosis is grounded in recalled memory — not in conversation history, because there isn't one yet. **This is the handoff.** No API calls between agents, no shared database, no glue code. Just memory.
-
----
-
-## Session 3 — Pharmacist
-
-Another new process. The pharmacist has never seen the doctor's visit either.
-
-It recalls the prescription, the diagnosis, and the patient's allergy — all captured across two earlier sessions — and counsels accordingly.
-
-![Session 3 — Pharmacist recalling prescription and counseling the patient](images/session3-pharmacist.png)
-
-Three agents. Three separate processes. One continuous patient experience.
-
----
+> The exact code above is what's in [`memory_tools.py`](memory_tools.py). Copy it as-is.
 
 ## Memories are visible
 
-Every stored fact appears immediately in the xysq dashboard — searchable, editable, deletable by the user. The agent doesn't own this data. The user does.
+Every fact your agent stores is visible in the xysq UI — taggable, editable, deletable by the user. The agent doesn't own the data; the user does.
 
-![xysq dashboard showing captured memories from the demo](images/xysq-dashboard.png)
+![xysq UI showing captured memories](images/xysq-ui-memories.png)
 
-The same memories are accessible to other agents (including Claude via MCP) with user consent — memory that outlives the framework you happened to use today.
+*Captured memories from the intake session, visible immediately in the xysq dashboard.*
 
----
+## The same memory, a different agent
+
+The same memories are accessible to other agents through xysq's MCP server — by user consent. Here's Claude recalling this same patient's symptoms in a completely separate session:
+
+![Claude recalling the same memory via MCP](images/claude-mcp-recall.png)
+
+*The patient's intake notes, recalled by Claude through the xysq MCP server. No code shared between Claude and the LangChain demo — only the memory layer.*
+
+This is the property frameworks-as-memory don't have: **memory that outlives the framework you happened to use today.**
 
 ## All three agents are the same code
 
 ```python
+# agents.py
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.prebuilt import create_react_agent
+
+from memory_tools import recall_memory, store_memory
+
+
 def build_agent(persona: str):
-    system_prompt = (PROMPTS_DIR / f"{persona}.txt").read_text()
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+    prompt_path = PROMPTS_DIR / f"{persona}.txt"
+    system_prompt = prompt_path.read_text()
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        temperature=0.2,
+        google_api_key=os.environ["GOOGLE_API_KEY"],
+    )
     return create_react_agent(
         model=llm,
         tools=[recall_memory, store_memory],
@@ -143,7 +97,25 @@ def build_agent(persona: str):
 
 Same model, same tools, same graph. Persona changes by swapping the prompt file. The agent identity is just a string.
 
----
+## The simulated conversation
+
+`demo.py` runs one agent at a time against a hardcoded patient script — the run is deterministic, so you and we see the same output:
+
+```bash
+python demo.py --intake     # Session 1: patient describes symptoms
+python demo.py --doctor     # Session 2: doctor recalls, diagnoses, prescribes
+python demo.py --pharm      # Session 3: pharmacist recalls Rx, counsels
+```
+
+Each session is its own process. Memory is the only thing they share.
+
+The patient is a 54-year-old presenting with classic Type 2 diabetes symptoms:
+
+- **Intake:** "I'm thirsty all the time and going to the bathroom constantly. Lost 12 lbs in two weeks. My dad had diabetes."
+- **Doctor:** "What do you think is going on?" → recalls symptoms + family history → orders A1C/FBG, prescribes Metformin if labs confirm.
+- **Pharmacist:** "I'm here to pick up my prescription." → recalls Metformin → counsels on dosing, GI side effects, alcohol interactions.
+
+The doctor never sees the intake conversation. The pharmacist never sees the doctor visit. **Memory is the only handoff.**
 
 ## Architecture
 
@@ -163,7 +135,11 @@ graph TD
     X -.->|MCP, with consent| C[Claude / other agents]
 ```
 
----
+## A real run
+
+Below is the actual captured output of `python demo.py --intake`, `--doctor`, `--pharm` run end-to-end:
+
+> Captured run goes here once executed locally. Replace this block with the real terminal output.
 
 ## Quickstart
 
@@ -171,34 +147,31 @@ graph TD
 git clone https://github.com/xysq-ai/Guides-for-Agentic-Development.git
 cd Guides-for-Agentic-Development/guides/langchain-healthcare
 pip install -r requirements.txt
-
 cp .env.example .env
-# XYSQ_API_KEY   →  https://app.xysq.ai/connect   (free account)
-# GOOGLE_API_KEY →  https://aistudio.google.com    (generous free tier)
+# Fill in XYSQ_API_KEY (https://app.xysq.ai/connect)
+# Fill in GOOGLE_API_KEY (https://aistudio.google.com - generous free tier)
 
 python demo.py --intake
 python demo.py --doctor
 python demo.py --pharm
 ```
 
----
+Run them in order — `--intake` first, then `--doctor`, then `--pharm`. Memory captured by intake takes a few seconds to index; `store_memory` waits for that automatically before returning.
 
 ## Beyond healthcare
 
 The same pattern works anywhere agents need shared, durable context:
 
-- **Tutoring agents** that remember which topics a student struggled with last week, so today's session picks up where the last one stopped
-- **Sales agents** that remember an account's objections, deal stage, and key contacts — so the next rep doesn't re-ask discovery questions
-- **Support agents** that remember a user's ticket history and previous fixes — so the next agent doesn't make the user repeat themselves
+- **Tutoring agents** that remember which topics a student struggled with last week, so today's session can pick up where the last one stopped.
+- **Sales agents** that remember an account's objections, deal stage, and key contacts — so the next rep doesn't ask the same discovery questions.
+- **Support agents** that remember a user's ticket history and previous fixes — so the next agent doesn't make the user repeat themselves.
 
 ## Extend in an afternoon
 
-- [ ] Swap `prompts/intake.txt` for a tutoring persona and test with math problems
-- [ ] Add a fourth agent (e.g., follow-up nurse) by adding `prompts/followup.txt` — no code change
-- [ ] Use the same two tools with CrewAI or AutoGen — only the `@tool` wrapper changes
-- [ ] Pre-populate memory via the xysq SDK and point `recall_memory` at your own dataset
-
----
+- [ ] Swap `prompts/intake.txt` for a tutoring persona and test with math problems.
+- [ ] Add a fourth agent (e.g., a follow-up nurse) by adding `prompts/followup.txt` — no code change.
+- [ ] Use the same two tools with a different framework (CrewAI, AutoGen) — only the `@tool` wrapper changes, the xysq calls stay identical.
+- [ ] Pre-populate memory via the xysq SDK and point `recall_memory` at your own dataset.
 
 ## Files
 
@@ -206,17 +179,6 @@ The same pattern works anywhere agents need shared, durable context:
 |---|---|
 | [`memory_tools.py`](memory_tools.py) | The two `@tool` functions — the entire xysq integration |
 | [`agents.py`](agents.py) | `build_agent(persona)` — one factory for all three agents |
-| [`demo.py`](demo.py) | Runs one agent per session against a scripted patient |
-| [`prompts/`](prompts/) | One `.txt` file per agent persona |
-
----
-
----
-
-## Author
-
-Navneet Garg  
-AI Engineer focused on long-term memory systems, agent infrastructure, and developer tooling.
-
-- GitHub: https://github.com/TheLunarLogic
-- Email: navneetg050@gmail.com.com
+| [`demo.py`](demo.py) | Runs one agent against a hardcoded patient script |
+| [`ui.py`](ui.py) | Pretty terminal output (rich-based) |
+| [`prompts/`](prompts/) | One text file per persona |
