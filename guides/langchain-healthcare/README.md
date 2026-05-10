@@ -148,19 +148,40 @@ Same model, same tools, same graph. Persona changes by swapping the prompt file.
 ## Architecture
 
 ```mermaid
-graph TD
-    P[Patient]
-    P --> I[demo.py --intake]
-    P --> D[demo.py --doctor]
-    P --> Ph[demo.py --pharm]
-    I --> IA[Intake Agent]
-    D --> DA[Doctor Agent]
-    Ph --> PA[Pharmacist Agent]
-    IA -->|store_memory| X[(xysq Memory)]
-    DA -->|recall + store| X
-    PA -->|recall + store| X
-    X -.->|visible in UI| UI[xysq Dashboard]
-    X -.->|MCP, with consent| C[Claude / other agents]
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#F5F1EA',
+  'primaryTextColor':'#1a1a1a',
+  'primaryBorderColor':'#1a1a1a',
+  'lineColor':'#555',
+  'fontFamily':'Outfit, sans-serif'
+}}}%%
+flowchart LR
+    P(["👤 Patient"]):::patient
+
+    subgraph Agents["LangChain Agents · same model, same graph"]
+        direction TB
+        IA["🩺 Intake Agent"]:::agent
+        DA["👨‍⚕️ Doctor Agent"]:::agent
+        PA["💊 Pharmacist Agent"]:::agent
+    end
+
+    P --> IA
+    P --> DA
+    P --> PA
+
+    IA -- "store_memory" --> X
+    DA -- "recall + store" --> X
+    PA -- "recall + store" --> X
+
+    X[("🧠 xysq Memory<br/><i>consent-first, user-owned</i>")]:::memory
+
+    X -.->|"visible in UI"| UI["📊 xysq Dashboard"]:::external
+    X -.->|"MCP · with consent"| C["🤖 Claude / other agents"]:::external
+
+    classDef patient fill:#1a1a1a,stroke:#1a1a1a,color:#fff,font-weight:bold
+    classDef agent fill:#fff,stroke:#1a1a1a,stroke-width:2px,color:#1a1a1a
+    classDef memory fill:#FFE8B8,stroke:#1a1a1a,stroke-width:2px,color:#1a1a1a,font-weight:bold
+    classDef external fill:#E8F0FE,stroke:#4A6FA5,stroke-width:1.5px,color:#1a1a1a,stroke-dasharray:3 3
 ```
 
 ---
