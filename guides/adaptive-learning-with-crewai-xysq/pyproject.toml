@@ -1,0 +1,29 @@
+[project]
+name = "xysq_crewai"
+version = "0.1.0"
+description = "Adaptive Learning Companion with Persistent Memory — xysq + CrewAI"
+authors = [{ name = "xysq.ai", email = "hello@xysq.ai" }]
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "crewai[bedrock,tools]==1.14.4",
+    "xysq @ git+https://github.com/xysq-ai/sdk_python_xysq.git",
+    "streamlit>=1.40.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+xysq_crewai = "xysq_crewai.main:run"
+run_crew = "xysq_crewai.main:run"
+train = "xysq_crewai.main:train"
+replay = "xysq_crewai.main:replay"
+test = "xysq_crewai.main:test"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.crewai]
+type = "crew"

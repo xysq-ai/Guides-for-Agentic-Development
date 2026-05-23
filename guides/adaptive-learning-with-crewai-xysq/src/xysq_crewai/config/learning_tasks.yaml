@@ -1,0 +1,68 @@
+teach_task:
+  description: >
+    Teach the learner about: {topic}
+
+    DIFFICULTY LEVEL: {difficulty}
+
+    PRIOR LEARNING CONTEXT (from persistent memory):
+    {memory_context}
+
+    INSTRUCTIONS:
+    - If the learner has prior understanding gaps listed above, focus your lesson there.
+    - If this is a first session (no history), teach foundational concepts.
+    - Adjust depth and complexity based on the difficulty level.
+    - Reference any uploaded materials if mentioned in the context.
+    - Keep the lesson to 3–4 focused paragraphs.
+    - Use concrete examples and analogies.
+    - Do NOT include any quiz questions in your lesson output.
+  expected_output: >
+    A clear, adaptive lesson on {topic} at {difficulty} level. Plain prose only —
+    no questions, no JSON, no formatting symbols.
+  agent: tutor
+
+quiz_task:
+  description: >
+    Generate a multiple-choice quiz on: {topic}
+
+    DIFFICULTY LEVEL: {difficulty}
+    NUMBER OF QUESTIONS: {num_questions}
+
+    PRIOR LEARNING CONTEXT (from persistent memory):
+    {memory_context}
+
+    CRITICAL: You MUST output ONLY a valid JSON array. Nothing else.
+    No preamble. No explanation. No markdown fences. No text before or after.
+    Start your response with [ and end with ].
+
+    Each question object must have EXACTLY these fields:
+    - "question": string — the question text
+    - "options": array of exactly 4 strings, each starting with "A) ", "B) ", "C) ", "D) "
+    - "correct_answer": string — exactly ONE letter: "A", "B", "C", or "D"
+    - "explanation": string — one sentence explaining the correct answer
+
+    RULES:
+    - Generate exactly {num_questions} question objects in the array.
+    - Target understanding gaps from the learning context when available.
+    - Adjust complexity to match the {difficulty} difficulty level.
+    - Every question must have exactly 4 options.
+    - correct_answer must be exactly one of: A, B, C, D
+
+    EXAMPLE of required output format (2 questions):
+    [
+      {
+        "question": "What is the base case in recursion?",
+        "options": ["A) The recursive call", "B) The condition that stops recursion", "C) The function name", "D) The return type"],
+        "correct_answer": "B",
+        "explanation": "The base case is the condition that terminates the recursion."
+      },
+      {
+        "question": "Which data structure uses LIFO order?",
+        "options": ["A) Queue", "B) Linked List", "C) Stack", "D) Heap"],
+        "correct_answer": "C",
+        "explanation": "A stack follows Last-In First-Out order."
+      }
+    ]
+  expected_output: >
+    A valid JSON array of exactly {num_questions} question objects.
+    Output ONLY the JSON array, starting with [ and ending with ].
+  agent: quiz_master

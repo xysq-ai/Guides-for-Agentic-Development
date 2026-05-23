@@ -1,0 +1,47 @@
+evaluate_task:
+  description: >
+    Evaluate the learner's quiz answers on: {topic}
+
+    DIFFICULTY: {difficulty}
+
+    QUIZ AND LEARNER ANSWERS:
+    {answers_text}
+
+    PRIOR LEARNING CONTEXT:
+    {memory_context}
+
+    INSTRUCTIONS:
+    - Score each answer as correct or incorrect.
+    - Provide a brief explanation for each.
+    - Calculate the total score as X/{num_questions}.
+    - List specific concepts the learner should review.
+    - If prior history exists, note whether the learner improved or regressed.
+  expected_output: >
+    Detailed evaluation with score (X/{num_questions}), per-question feedback,
+    and a list of understanding gaps identified.
+  agent: quiz_master
+
+report_task:
+  description: >
+    Generate a learning progress report for: {topic}
+
+    DIFFICULTY: {difficulty}
+
+    EVALUATION RESULTS:
+    {evaluation}
+
+    PRIOR LEARNING CONTEXT:
+    {memory_context}
+
+    INSTRUCTIONS:
+    - Summarize the current session performance.
+    - Compare with previous sessions if history exists.
+    - Identify improvement trends or recurring gaps.
+    - Suggest whether the learner should increase or decrease difficulty.
+    - Provide 2–3 specific recommendations for next session.
+    - Format as a clean markdown report.
+    - Be encouraging but honest.
+  expected_output: >
+    A markdown-formatted learning progress report with score summary,
+    trend analysis, understanding gaps, and actionable recommendations.
+  agent: progress_analyst
